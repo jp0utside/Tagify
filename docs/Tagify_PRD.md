@@ -73,10 +73,10 @@
 
 **Core Features:**
 1. ✅ Spotify authentication (OAuth)
-2. ✅ Import user's liked songs and playlists
-3. ✅ Create, rename, and delete tags
+2. ✅ Import user's liked songs and existing playlists (read-only)
+3. ✅ Create, rename, and delete tags (stored as playlists in "Tagify Tags" folder)
 4. ✅ Add/remove tags on individual songs
-5. ✅ Query builder with AND/OR/NOT logic
+5. ✅ Query builder with AND/OR/NOT logic (works with both tags and imported playlists)
 6. ✅ Export query results:
    - Add to Spotify queue
    - Save as new tag (creates Spotify playlist in special folder)
@@ -93,7 +93,8 @@
 - Flutter for native mobile app
 - Spotify Web API for all integration (no native SDK)
 - SQLite for local storage/caching
-- Spotify playlists as backend storage (tag = playlist in "Tagify Tags" folder)
+- Tags stored as Spotify playlists in "Tagify Tags" folder
+- Existing playlists imported as read-only entities for querying
 
 ### What's Out (Post-MVP)
 
@@ -109,16 +110,42 @@
 
 ---
 
+## Tags vs Playlists: Key Distinction
+
+**Tags (Modifiable):**
+- Created and managed by Tagify app
+- Stored as playlists in "Tagify Tags" folder in Spotify
+- Can be created, renamed, and deleted through the app
+- Songs can be added/removed from tags
+- Used for organization and querying
+- Format: `#tag:tagname` in Spotify
+
+**Playlists (Read-Only):**
+- Existing playlists from user's Spotify account
+- Imported as read-only entities for querying
+- Cannot be modified through Tagify app
+- Preserve user's existing organizational work
+- Available for querying alongside tags
+- Remain in their original locations in Spotify
+
+**Query Integration:**
+Both tags and playlists can be used in queries, but they serve different purposes:
+- Tags: For flexible, multi-dimensional organization
+- Playlists: For leveraging existing organizational work
+
+---
+
 ## Technical Architecture
 
 ### MVP Architecture (Spotify as Source of Truth)
 
 **Why This Approach:**
-For MVP speed, I'm using Spotify playlists as my database. Each tag becomes a playlist in a special "Tagify Tags" folder. This means:
+For MVP speed, I'm using Spotify playlists as my database for tags. Each tag becomes a playlist in a special "Tagify Tags" folder, while existing playlists are imported as read-only entities. This means:
 - ✅ No separate backend to build/maintain
 - ✅ Users' data lives in their Spotify account (no lock-in)
 - ✅ Can ship faster and validate the concept
-- ✅ Playlists are familiar to users
+- ✅ Preserves existing playlist work while adding tagging functionality
+- ✅ Clear separation between tags (modifiable) and playlists (read-only)
 
 **Trade-offs:**
 - ⚠️ Limited by Spotify's playlist constraints (10k songs per playlist, ~11k playlists per user)
@@ -137,7 +164,7 @@ Speed to market matters more than perfect architecture for MVP. I can migrate to
 - Sync orchestration
 
 **Local Database (SQLite):**
-- Tables: `songs`, `tags`, `song_tags` (junction table)
+- Tables: `songs`, `collections` (with type column for tags/playlists), `song_collections` (junction table)
 - Purpose: Fast querying without API calls
 - Cache of Spotify data, not source of truth
 
@@ -149,10 +176,11 @@ Speed to market matters more than perfect architecture for MVP. I can migrate to
 
 **Data Flow:**
 ```
-User authenticates → Import playlists and liked songs from spotify → Store in local SQLite DB
-User tags song → Update local SQLite → API call to add song to Spotify playlist
-User queries → Execute against local SQLite (instant results)
-App launch → Fetch updates from Spotify → Sync local database
+User authenticates → Import playlists and liked songs from Spotify → Store in local SQLite DB
+User creates tag → Update local SQLite → Create playlist in "Tagify Tags" folder
+User tags song → Update local SQLite → API call to add song to tag playlist
+User queries → Execute against local SQLite (instant results, includes both tags and playlists)
+App launch → Fetch updates from Spotify → Sync local database (tags and playlists)
 ```
 
 ### Sync Strategy
@@ -168,10 +196,11 @@ App launch → Fetch updates from Spotify → Sync local database
 **What Gets Synced:**
 - Tag playlists (create/rename/delete)
 - Song additions/removals from tags
-- Detection of external changes (user edited playlists directly in Spotify)
+- Detection of external changes (user edited tag playlists directly in Spotify)
+- Import of new/existing regular playlists (read-only sync)
 
 **Conflict Resolution:**
-If local cache differs from Spotify (e.g., user deleted a tag playlist in Spotify), local cache is updated to match Spotify. User is notified of significant changes.
+If local cache differs from Spotify (e.g., user deleted a tag playlist in Spotify), local cache is updated to match Spotify. For regular playlists, external changes are detected and imported on sync. User is notified of significant changes.
 
 ---
 
@@ -292,7 +321,9 @@ If local cache differs from Spotify (e.g., user deleted a tag playlist in Spotif
 - Background API call: `POST /playlists/{playlist_id}/tracks`
 - If API fails, rollback UI change and show error
 - Batch operations when adding same tag to multiple songs
-- Existing playlists import as tags for querying, but cannot be added or removed from songs
+- Existing playlists are imported as read-only entities for querying
+- Playlists cannot be modified by the app (no adding/removing songs)
+- Only tags can be modified and assigned to songs
 
 ---
 
