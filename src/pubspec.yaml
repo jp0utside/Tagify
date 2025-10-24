@@ -1,0 +1,44 @@
+name: tagify
+description: A mobile app that adds a powerful tagging system to Spotify
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.16.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Core dependencies
+  http: ^1.1.0              # Spotify API calls
+  sqflite: ^2.3.0           # Local SQLite database
+  flutter_secure_storage: ^9.0.0  # Secure token storage
+  provider: ^6.1.1          # State management
+  url_launcher: ^6.2.1      # Deep linking to Spotify
+  shared_preferences: ^2.2.2 # App preferences
+  connectivity_plus: ^5.0.2  # Network connectivity
+  flutter_dotenv: ^5.1.0    # Environment variables
+  
+  # UI dependencies
+  cupertino_icons: ^1.0.2
+  flutter_svg: ^2.0.9
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/images/
+    - .env
+  
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: fonts/Roboto-Regular.ttf
+        - asset: fonts/Roboto-Bold.ttf
+          weight: 700
