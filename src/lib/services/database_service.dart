@@ -1,14 +1,22 @@
 import 'dart:async';
 import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart';
+import 'dart:io';
+import 'dart:convert';
 import '../models/song.dart';
 import '../models/tag.dart';
 import '../models/song_tag.dart';
+import 'web_database_service.dart';
 
 class DatabaseService {
   static Database? _database;
   static const String _databaseName = 'tagify.db';
   static const int _databaseVersion = 1;
+  static bool _initialized = false;
+  static WebDatabaseService? _webService;
 
   Future<Database> get database async {
     _database ??= await _initDatabase();
@@ -16,12 +24,32 @@ class DatabaseService {
   }
 
   Future<void> init() async {
-    await database;
+    if (!_initialized) {
+      if (kIsWeb) {
+        // Use web database service for web platform
+        _webService = WebDatabaseService();
+        await _webService!.init();
+      } else {
+        // For mobile/desktop platforms
+        sqfliteFfiInit();
+        databaseFactory = databaseFactoryFfi;
+        await database;
+      }
+      _initialized = true;
+    }
   }
 
   Future<Database> _initDatabase() async {
-    final databasesPath = await getDatabasesPath();
-    final path = join(databasesPath, _databaseName);
+    String path;
+    
+    if (kIsWeb) {
+      // For web, use a simple path
+      path = _databaseName;
+    } else {
+      // For mobile/desktop, use the proper databases path
+      final databasesPath = await getDatabasesPath();
+      path = join(databasesPath, _databaseName);
+    }
 
     return await openDatabase(
       path,
@@ -88,11 +116,17 @@ class DatabaseService {
 
   // Song operations
   Future<int> insertSong(Song song) async {
+    if (kIsWeb && _webService != null) {
+      return await _webService!.insertSong(song);
+    }
     final db = await database;
     return await db.insert('songs', song.toJson());
   }
 
   Future<List<Song>> getAllSongs() async {
+    if (kIsWeb && _webService != null) {
+      return await _webService!.getAllSongs();
+    }
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query('songs');
     return List.generate(maps.length, (i) => Song.fromJson(maps[i]));

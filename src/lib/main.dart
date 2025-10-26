@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'app.dart';
 import 'services/auth_service.dart';
-import 'services/database_service.dart';
+import 'services/database_factory.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,9 +11,8 @@ void main() async {
   // Load environment variables
   await dotenv.load(fileName: ".env");
   
-  // Initialize services
-  final databaseService = DatabaseService();
-  await databaseService.init();
+  // Initialize database factory
+  await DatabaseFactory.init();
   
   final authService = AuthService();
   
@@ -21,7 +20,6 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => authService),
-        Provider<DatabaseService>(create: (_) => databaseService),
       ],
       child: const TagifyApp(),
     ),
