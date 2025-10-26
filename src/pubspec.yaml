@@ -12,7 +12,11 @@ dependencies:
   
   # Core dependencies
   http: ^1.1.0              # Spotify API calls
-  sqflite: ^2.3.0           # Local SQLite database
+  sqflite: ^2.3.0           # Local SQLite database (mobile)
+  sqflite_common_ffi: ^2.3.0 # SQLite for web/desktop
+  sqlite3_flutter_libs: ^0.5.0 # SQLite for web
+  path: ^1.8.3              # Path utilities
+  path_provider: ^2.1.1     # Path utilities for file system
   flutter_secure_storage: ^9.0.0  # Secure token storage
   provider: ^6.1.1          # State management
   url_launcher: ^6.2.1      # Deep linking to Spotify
