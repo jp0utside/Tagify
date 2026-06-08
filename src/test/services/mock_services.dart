@@ -23,6 +23,8 @@ class MockSpotifyService extends SpotifyService {
   List<Tag> createdTags = [];
   List<String> deletedPlaylistIds = [];
   Map<String, Map<String, String?>> updatedPlaylists = {};
+  Map<String, List<String>> addedTracks = {};
+  Map<String, List<String>> removedTracks = {};
   bool shouldFail = false;
 
   MockSpotifyService() : super(MockAuthService());
@@ -97,6 +99,20 @@ class MockSpotifyService extends SpotifyService {
   Future<void> deletePlaylist(String playlistId) async {
     if (shouldFail) throw Exception('API Error');
     deletedPlaylistIds.add(playlistId);
+  }
+
+  @override
+  Future<void> addTracksToPlaylist(String playlistId, List<String> trackUris) async {
+    if (shouldFail) throw Exception('API Error');
+    addedTracks.putIfAbsent(playlistId, () => []);
+    addedTracks[playlistId]!.addAll(trackUris);
+  }
+
+  @override
+  Future<void> removeTracksFromPlaylist(String playlistId, List<String> trackUris) async {
+    if (shouldFail) throw Exception('API Error');
+    removedTracks.putIfAbsent(playlistId, () => []);
+    removedTracks[playlistId]!.addAll(trackUris);
   }
 
   @override
@@ -202,6 +218,17 @@ class MockDatabaseService extends DatabaseService {
   @override
   Future<void> removeSongFromTag(int songId, int tagId) async {
     _songTags[tagId]?.remove(songId);
+  }
+
+  @override
+  Future<List<Tag>> getTagsForSong(int songId) async {
+    final tagIds = <int>[];
+    for (final entry in _songTags.entries) {
+      if (entry.value.contains(songId)) {
+        tagIds.add(entry.key);
+      }
+    }
+    return _tags.where((t) => tagIds.contains(t.id)).toList();
   }
 
   @override
