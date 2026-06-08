@@ -7,27 +7,63 @@ import 'auth_service.dart';
 
 class SpotifyService {
   final AuthService _authService;
-  
+
   SpotifyService(this._authService);
 
-  Future<Map<String, String>> _getHeaders() async {
+  Map<String, String> _buildHeaders() {
     final token = _authService.accessToken;
     if (token == null) {
       throw Exception('No access token available');
     }
-    
     return {
       'Authorization': 'Bearer $token',
       'Content-Type': 'application/json',
     };
   }
 
+  Future<http.Response> _request(
+    String method,
+    String url, {
+    String? body,
+  }) async {
+    var headers = _buildHeaders();
+    var response = await _sendRequest(method, url, headers, body);
+
+    if (response.statusCode == 401) {
+      await _authService.refreshAccessToken();
+      if (_authService.accessToken == null) {
+        throw Exception('Session expired. Please log in again.');
+      }
+      headers = _buildHeaders();
+      response = await _sendRequest(method, url, headers, body);
+    }
+
+    return response;
+  }
+
+  Future<http.Response> _sendRequest(
+    String method,
+    String url,
+    Map<String, String> headers,
+    String? body,
+  ) async {
+    final uri = Uri.parse(url);
+    switch (method) {
+      case 'GET':
+        return await http.get(uri, headers: headers);
+      case 'POST':
+        return await http.post(uri, headers: headers, body: body);
+      case 'PUT':
+        return await http.put(uri, headers: headers, body: body);
+      case 'DELETE':
+        return await http.delete(uri, headers: headers, body: body);
+      default:
+        throw Exception('Unsupported HTTP method: $method');
+    }
+  }
+
   Future<User> getCurrentUser() async {
-    final headers = await _getHeaders();
-    final response = await http.get(
-      Uri.parse('https://api.spotify.com/v1/me'),
-      headers: headers,
-    );
+    final response = await _request('GET', 'https://api.spotify.com/v1/me');
 
     if (response.statusCode == 200) {
       return User.fromJson(jsonDecode(response.body));
@@ -37,10 +73,9 @@ class SpotifyService {
   }
 
   Future<List<Song>> getLikedSongs({int limit = 50, int offset = 0}) async {
-    final headers = await _getHeaders();
-    final response = await http.get(
-      Uri.parse('https://api.spotify.com/v1/me/tracks?limit=$limit&offset=$offset'),
-      headers: headers,
+    final response = await _request(
+      'GET',
+      'https://api.spotify.com/v1/me/tracks?limit=$limit&offset=$offset',
     );
 
     if (response.statusCode == 200) {
@@ -56,10 +91,9 @@ class SpotifyService {
   }
 
   Future<int> getLikedSongsTotal() async {
-    final headers = await _getHeaders();
-    final response = await http.get(
-      Uri.parse('https://api.spotify.com/v1/me/tracks?limit=1&offset=0'),
-      headers: headers,
+    final response = await _request(
+      'GET',
+      'https://api.spotify.com/v1/me/tracks?limit=1&offset=0',
     );
 
     if (response.statusCode == 200) {
@@ -74,32 +108,31 @@ class SpotifyService {
     final List<Song> allSongs = [];
     int offset = 0;
     const int limit = 50;
-    
+
     while (true) {
       final songs = await getLikedSongs(limit: limit, offset: offset);
       allSongs.addAll(songs);
-      
+
       if (songs.length < limit) {
-        break; // No more songs
+        break;
       }
-      
+
       offset += limit;
     }
-    
+
     return allSongs;
   }
 
   Future<List<Tag>> getUserPlaylists({int limit = 50, int offset = 0}) async {
-    final headers = await _getHeaders();
-    final response = await http.get(
-      Uri.parse('https://api.spotify.com/v1/me/playlists?limit=$limit&offset=$offset'),
-      headers: headers,
+    final response = await _request(
+      'GET',
+      'https://api.spotify.com/v1/me/playlists?limit=$limit&offset=$offset',
     );
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       final List<dynamic> items = data['items'] ?? [];
-      
+
       return items.map((playlist) {
         return Tag.fromSpotifyPlaylist(playlist);
       }).toList();
@@ -112,26 +145,25 @@ class SpotifyService {
     final List<Tag> allPlaylists = [];
     int offset = 0;
     const int limit = 50;
-    
+
     while (true) {
       final playlists = await getUserPlaylists(limit: limit, offset: offset);
       allPlaylists.addAll(playlists);
-      
+
       if (playlists.length < limit) {
-        break; // No more playlists
+        break;
       }
-      
+
       offset += limit;
     }
-    
+
     return allPlaylists;
   }
 
   Future<List<Song>> getPlaylistTracks(String playlistId, {int limit = 50, int offset = 0}) async {
-    final headers = await _getHeaders();
-    final response = await http.get(
-      Uri.parse('https://api.spotify.com/v1/playlists/$playlistId/tracks?limit=$limit&offset=$offset'),
-      headers: headers,
+    final response = await _request(
+      'GET',
+      'https://api.spotify.com/v1/playlists/$playlistId/tracks?limit=$limit&offset=$offset',
     );
 
     if (response.statusCode == 200) {
@@ -168,18 +200,15 @@ class SpotifyService {
 
   Future<Tag> createPlaylist(String name, {String? description, bool isPublic = false}) async {
     final user = await getCurrentUser();
-    final headers = await _getHeaders();
-    
-    final body = {
-      'name': name,
-      'description': description ?? 'Created by Tagify',
-      'public': isPublic,
-    };
 
-    final response = await http.post(
-      Uri.parse('https://api.spotify.com/v1/users/${user.id}/playlists'),
-      headers: headers,
-      body: jsonEncode(body),
+    final response = await _request(
+      'POST',
+      'https://api.spotify.com/v1/users/${user.id}/playlists',
+      body: jsonEncode({
+        'name': name,
+        'description': description ?? 'Created by Tagify',
+        'public': isPublic,
+      }),
     );
 
     if (response.statusCode == 201) {
@@ -191,15 +220,13 @@ class SpotifyService {
   }
 
   Future<void> updatePlaylist(String playlistId, {String? name, String? description}) async {
-    final headers = await _getHeaders();
     final body = <String, dynamic>{};
-    
     if (name != null) body['name'] = name;
     if (description != null) body['description'] = description;
 
-    final response = await http.put(
-      Uri.parse('https://api.spotify.com/v1/playlists/$playlistId'),
-      headers: headers,
+    final response = await _request(
+      'PUT',
+      'https://api.spotify.com/v1/playlists/$playlistId',
       body: jsonEncode(body),
     );
 
@@ -209,10 +236,9 @@ class SpotifyService {
   }
 
   Future<void> deletePlaylist(String playlistId) async {
-    final headers = await _getHeaders();
-    final response = await http.delete(
-      Uri.parse('https://api.spotify.com/v1/playlists/$playlistId/followers'),
-      headers: headers,
+    final response = await _request(
+      'DELETE',
+      'https://api.spotify.com/v1/playlists/$playlistId/followers',
     );
 
     if (response.statusCode != 200) {
@@ -221,16 +247,10 @@ class SpotifyService {
   }
 
   Future<void> addTracksToPlaylist(String playlistId, List<String> trackUris) async {
-    final headers = await _getHeaders();
-    
-    final body = {
-      'uris': trackUris,
-    };
-
-    final response = await http.post(
-      Uri.parse('https://api.spotify.com/v1/playlists/$playlistId/tracks'),
-      headers: headers,
-      body: jsonEncode(body),
+    final response = await _request(
+      'POST',
+      'https://api.spotify.com/v1/playlists/$playlistId/tracks',
+      body: jsonEncode({'uris': trackUris}),
     );
 
     if (response.statusCode != 201) {
@@ -239,16 +259,12 @@ class SpotifyService {
   }
 
   Future<void> removeTracksFromPlaylist(String playlistId, List<String> trackUris) async {
-    final headers = await _getHeaders();
-    
-    final body = {
-      'tracks': trackUris.map((uri) => {'uri': uri}).toList(),
-    };
-
-    final response = await http.delete(
-      Uri.parse('https://api.spotify.com/v1/playlists/$playlistId/tracks'),
-      headers: headers,
-      body: jsonEncode(body),
+    final response = await _request(
+      'DELETE',
+      'https://api.spotify.com/v1/playlists/$playlistId/tracks',
+      body: jsonEncode({
+        'tracks': trackUris.map((uri) => {'uri': uri}).toList(),
+      }),
     );
 
     if (response.statusCode != 200) {
@@ -257,10 +273,9 @@ class SpotifyService {
   }
 
   Future<void> addTrackToQueue(String trackUri) async {
-    final headers = await _getHeaders();
-    final response = await http.post(
-      Uri.parse('https://api.spotify.com/v1/me/player/queue?uri=$trackUri'),
-      headers: headers,
+    final response = await _request(
+      'POST',
+      'https://api.spotify.com/v1/me/player/queue?uri=$trackUri',
     );
 
     if (response.statusCode != 204) {
@@ -271,14 +286,13 @@ class SpotifyService {
   Future<void> addTracksToQueue(List<String> trackUris) async {
     for (final uri in trackUris) {
       await addTrackToQueue(uri);
-      // Add small delay to respect rate limits
       await Future.delayed(const Duration(milliseconds: 100));
     }
   }
 
   Future<List<Tag>> getTagifyTags() async {
     final allPlaylists = await getAllUserPlaylists();
-    return allPlaylists.where((playlist) => 
+    return allPlaylists.where((playlist) =>
       playlist.name.startsWith('#tag:')
     ).toList();
   }
@@ -292,8 +306,7 @@ class SpotifyService {
   }
 
   Future<void> ensureTagifyFolder() async {
-    // This is a placeholder - Spotify doesn't have folders in the API
-    // We'll use the #tag: prefix to identify Tagify tags
-    // In the future, we could create a special playlist to act as a folder
+    // Spotify doesn't have folders in the API
+    // We use the #tag: prefix to identify Tagify tags
   }
 }
