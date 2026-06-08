@@ -4,6 +4,7 @@ class Song {
   final String title;
   final String artist;
   final String album;
+  final String? albumArtUrl;
   final int? durationMs;
   final String? uri;
   final DateTime? createdAt;
@@ -14,6 +15,7 @@ class Song {
     required this.title,
     required this.artist,
     required this.album,
+    this.albumArtUrl,
     this.durationMs,
     this.uri,
     this.createdAt,
@@ -26,10 +28,11 @@ class Song {
       title: json['title'],
       artist: json['artist'],
       album: json['album'],
+      albumArtUrl: json['album_art_url'],
       durationMs: json['duration_ms'],
       uri: json['uri'],
-      createdAt: json['created_at'] != null 
-          ? DateTime.parse(json['created_at']) 
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
           : null,
     );
   }
@@ -40,6 +43,7 @@ class Song {
       'title': title,
       'artist': artist,
       'album': album,
+      'album_art_url': albumArtUrl,
       'duration_ms': durationMs,
       'uri': uri,
       'created_at': createdAt?.toIso8601String(),
@@ -49,13 +53,25 @@ class Song {
   }
 
   factory Song.fromSpotifyTrack(Map<String, dynamic> track) {
+    final albumImages = track['album']?['images'] as List<dynamic>?;
+    String? artUrl;
+    if (albumImages != null && albumImages.isNotEmpty) {
+      // Prefer smallest image for list thumbnails, fall back to first
+      final small = albumImages.lastWhere(
+        (img) => img['height'] != null && img['height'] <= 100,
+        orElse: () => albumImages.last,
+      );
+      artUrl = small['url'];
+    }
+
     return Song(
       spotifyId: track['id'] ?? '',
       title: track['name'] ?? '',
-      artist: track['artists']?.isNotEmpty == true 
+      artist: track['artists']?.isNotEmpty == true
           ? track['artists'][0]['name'] ?? ''
           : '',
       album: track['album']?['name'] ?? '',
+      albumArtUrl: artUrl,
       durationMs: track['duration_ms'],
       uri: track['uri'],
     );

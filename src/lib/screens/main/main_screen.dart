@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../services/tag_service.dart';
 import '../library/library_screen.dart';
 import '../query/query_screen.dart';
 import '../tags/tags_screen.dart';
@@ -35,6 +37,9 @@ class _MainScreenState extends State<MainScreen> {
           setState(() {
             _currentIndex = index;
           });
+          if (index == 2) {
+            Provider.of<TagService>(context, listen: false).loadTags();
+          }
         },
         items: const [
           BottomNavigationBarItem(

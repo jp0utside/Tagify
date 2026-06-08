@@ -171,8 +171,25 @@ class _LibraryScreenState extends State<LibraryScreen> {
         : '';
 
     return ListTile(
-      leading: const CircleAvatar(
-        child: Icon(Icons.music_note),
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: song.albumArtUrl != null
+            ? Image.network(
+                song.albumArtUrl!,
+                width: 48,
+                height: 48,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Icon(Icons.music_note),
+                ),
+              )
+            : const SizedBox(
+                width: 48,
+                height: 48,
+                child: Icon(Icons.music_note),
+              ),
       ),
       title: Text(
         song.title,
