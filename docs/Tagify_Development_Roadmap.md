@@ -27,10 +27,21 @@ This roadmap outlines the development plan for Tagify, a mobile app that adds a 
 - Core services and data models implemented
 - Basic UI navigation and screens ready
 
-**🚧 Next: Phase 2 (Week 2): Library Import & Data Management**
-- Import user's Spotify library and playlists
-- Tag management foundation
-- Data sync between local and Spotify
+**✅ Phase 2 Complete (Week 2): Library Import & Data Management**
+- ImportService with paginated Spotify fetch, progress tracking, cancellation
+- TagService with full CRUD (create/rename/delete) and Spotify playlist sync
+- Import screen with progress UI and error/cancel/completion states
+- Library screen with album art, search, pull-to-refresh
+- Tags screen with Tags/Playlists tabs, overflow menu (rename/delete)
+- Proper provider wiring for all services
+- Web deployment via GitHub Actions → GitHub Pages
+- Fixed Spotify OAuth PKCE (SHA256) and same-tab redirect for web
+- Unit tests for ImportService (8) and TagService (17)
+
+**🚧 Next: Phase 3 (Week 3): Tagging System**
+- Individual song tagging from song detail screen
+- Batch tagging operations
+- Tag chips display in library
 
 ---
 
@@ -120,54 +131,58 @@ This roadmap outlines the development plan for Tagify, a mobile app that adds a 
 
 ---
 
-### Phase 2: Library Import & Data Management (Week 2)
+### Phase 2: Library Import & Data Management (Week 2) ✅ **COMPLETED**
 **Goal:** Import user's Spotify library and establish data sync
 
-#### 2.1: Library Import (Days 8-10)
+#### 2.1: Library Import (Days 8-10) ✅ **COMPLETED**
 **Deliverables:**
-- [ ] Import liked songs from Spotify
-- [ ] Import user playlists (read-only entities)
-- [ ] Progress indicators and error handling
-- [ ] Local database population with tags and playlists separation
+- [x] Import liked songs from Spotify
+- [x] Import user playlists (read-only entities)
+- [x] Progress indicators and error handling
+- [x] Local database population with tags and playlists separation
 
-**Technical Tasks:**
-- Implement batch API requests respecting rate limits (180 req/min)
-- Create import service with progress tracking
-- Handle large libraries (5k+ songs) efficiently
-- Implement resumable import (handle interruptions)
-- Add comprehensive error handling and retry logic
-- Create import progress UI with accurate status
-- Import tags with appropriate type designation ('tag' or 'playlist')
-- Store tag metadata with type handling
+**Implementation Notes:**
+- `ImportService` fetches liked songs and playlists with pagination (50 items/batch)
+- Uses `getLikedSongsTotal()` for accurate progress display
+- Cancellation support via `cancelImport()` flag checked between batches
+- Deduplication: skips songs/tags already in DB by Spotify ID
+- Separates `#tag:` prefixed playlists from regular playlists during import
+- Import screen handles 5 states: idle, importing, completed, failed, cancelled
 
 **Key Files:**
-- `lib/services/import_service.dart`
-- `lib/screens/import/import_progress_screen.dart`
-- `lib/widgets/progress_indicator.dart`
+- `lib/services/import_service.dart` — core import logic
+- `lib/screens/import/import_screen.dart` — progress UI
 
-#### 2.2: Tag Management Foundation (Days 11-14)
+#### 2.2: Tag Management Foundation (Days 11-14) ✅ **COMPLETED**
 **Deliverables:**
-- [ ] Create/delete tags locally and in Spotify
-- [ ] Tag list UI with song counts
-- [ ] Basic tag operations working
-- [ ] Clear separation between tags and imported playlists in UI
+- [x] Create/delete/rename tags locally and in Spotify
+- [x] Tag list UI with song counts
+- [x] Basic tag operations working
+- [x] Clear separation between tags and imported playlists in UI
 
-**Technical Tasks:**
-- Implement tag creation (local DB + Spotify playlist in "Tagify Tags" folder)
-- Implement tag deletion with confirmation
-- Create "Tagify Tags" folder in Spotify
-- Implement tag renaming functionality
-- Create tag management UI with search/filter
-- Add validation for tag names (length, duplicates)
-- Implement tag sync between local and Spotify
-- Ensure tags are properly typed ('tag' vs 'playlist')
-- Prevent modification of playlist-type tags through the app
+**Implementation Notes:**
+- `TagService` handles full CRUD with Spotify playlist sync
+- Validation: empty names, >95 chars, case-insensitive duplicate check
+- Tags tab uses TabBar with "Tags" and "Playlists" sub-tabs
+- Tags have PopupMenuButton with rename/delete; playlists are read-only
+- Create tag dialog inline with validation feedback
+- Delete confirmation dialog warns about Spotify playlist removal
+- Tags screen reloads via `MainScreen` on tab switch (IndexedStack keeps screens alive)
 
 **Key Files:**
-- `lib/screens/tags/tags_screen.dart`
-- `lib/screens/tags/create_tag_screen.dart`
-- `lib/widgets/tag_list_item.dart`
-- `lib/services/tag_service.dart`
+- `lib/services/tag_service.dart` — tag CRUD + validation
+- `lib/screens/tags/tags_screen.dart` — tag management UI
+
+#### 2.3: Additional Improvements
+- [x] Fixed Spotify OAuth PKCE (SHA256 code challenge via crypto package)
+- [x] Fixed web auth to redirect in same tab (`webOnlyWindowName: '_self'`)
+- [x] Fixed `DatabaseService` to delegate all methods to `WebDatabaseService` on web
+- [x] Removed hardcoded sample data from web database
+- [x] Added album art URLs to Song model and library screen
+- [x] Added search filtering in library screen
+- [x] Proper provider wiring in `main.dart` (DatabaseService, SpotifyService, ImportService, TagService)
+- [x] GitHub Actions workflow for GitHub Pages deployment
+- [x] Unit tests: 8 for ImportService, 17 for TagService
 
 ---
 
