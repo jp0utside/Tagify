@@ -46,12 +46,27 @@ class SpotifyService {
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       final List<dynamic> items = data['items'] ?? [];
-      
+
       return items.map((item) {
         return Song.fromSpotifyTrack(item['track']);
       }).toList();
     } else {
       throw Exception('Failed to fetch liked songs: ${response.statusCode}');
+    }
+  }
+
+  Future<int> getLikedSongsTotal() async {
+    final headers = await _getHeaders();
+    final response = await http.get(
+      Uri.parse('https://api.spotify.com/v1/me/tracks?limit=1&offset=0'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['total'] ?? 0;
+    } else {
+      throw Exception('Failed to fetch liked songs total: ${response.statusCode}');
     }
   }
 
@@ -112,23 +127,43 @@ class SpotifyService {
     return allPlaylists;
   }
 
-  Future<List<Song>> getPlaylistTracks(String playlistId) async {
+  Future<List<Song>> getPlaylistTracks(String playlistId, {int limit = 50, int offset = 0}) async {
     final headers = await _getHeaders();
     final response = await http.get(
-      Uri.parse('https://api.spotify.com/v1/playlists/$playlistId/tracks'),
+      Uri.parse('https://api.spotify.com/v1/playlists/$playlistId/tracks?limit=$limit&offset=$offset'),
       headers: headers,
     );
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       final List<dynamic> items = data['items'] ?? [];
-      
-      return items.map((item) {
-        return Song.fromSpotifyTrack(item['track']);
-      }).toList();
+
+      return items
+          .where((item) => item['track'] != null)
+          .map((item) => Song.fromSpotifyTrack(item['track']))
+          .toList();
     } else {
       throw Exception('Failed to fetch playlist tracks: ${response.statusCode}');
     }
+  }
+
+  Future<List<Song>> getAllPlaylistTracks(String playlistId) async {
+    final List<Song> allTracks = [];
+    int offset = 0;
+    const int limit = 50;
+
+    while (true) {
+      final tracks = await getPlaylistTracks(playlistId, limit: limit, offset: offset);
+      allTracks.addAll(tracks);
+
+      if (tracks.length < limit) {
+        break;
+      }
+
+      offset += limit;
+    }
+
+    return allTracks;
   }
 
   Future<Tag> createPlaylist(String name, {String? description, bool isPublic = false}) async {
