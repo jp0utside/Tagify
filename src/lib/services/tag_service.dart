@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../models/song.dart';
 import '../models/tag.dart';
 import 'spotify_service.dart';
 import 'database_service.dart';
@@ -182,5 +183,148 @@ class TagService extends ChangeNotifier {
       debugPrint('Error deleting tag: $e');
       rethrow;
     }
+  }
+
+  // Song tagging operations
+
+  Future<List<Tag>> getTagsForSong(Song song) async {
+    if (song.id == null) return [];
+    return await _databaseService.getTagsForSong(song.id!);
+  }
+
+  Future<void> addTagToSong(Song song, Tag tag) async {
+    if (song.id == null || tag.id == null) {
+      throw Exception('Song and tag must be saved to database first');
+    }
+
+    await _databaseService.addSongToTag(song.id!, tag.id!);
+    notifyListeners();
+
+    try {
+      if (song.uri != null) {
+        await _spotifyService.addTracksToPlaylist(
+          tag.spotifyId,
+          [song.uri!],
+        );
+      }
+      await _loadSongCounts();
+      notifyListeners();
+    } catch (e) {
+      await _databaseService.removeSongFromTag(song.id!, tag.id!);
+      notifyListeners();
+      debugPrint('Error adding tag to song, rolled back: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> removeTagFromSong(Song song, Tag tag) async {
+    if (song.id == null || tag.id == null) {
+      throw Exception('Song and tag must be saved to database first');
+    }
+
+    await _databaseService.removeSongFromTag(song.id!, tag.id!);
+    notifyListeners();
+
+    try {
+      if (song.uri != null) {
+        await _spotifyService.removeTracksFromPlaylist(
+          tag.spotifyId,
+          [song.uri!],
+        );
+      }
+      await _loadSongCounts();
+      notifyListeners();
+    } catch (e) {
+      await _databaseService.addSongToTag(song.id!, tag.id!);
+      notifyListeners();
+      debugPrint('Error removing tag from song, rolled back: $e');
+      rethrow;
+    }
+  }
+
+  Future<int> batchAddTagToSongs({
+    required List<Song> songs,
+    required Tag tag,
+    void Function(int completed, int total)? onProgress,
+  }) async {
+    if (tag.id == null) throw Exception('Tag must be saved to database first');
+
+    int successCount = 0;
+    final urisToAdd = <String>[];
+
+    for (int i = 0; i < songs.length; i++) {
+      final song = songs[i];
+      if (song.id == null) continue;
+
+      try {
+        await _databaseService.addSongToTag(song.id!, tag.id!);
+        if (song.uri != null) urisToAdd.add(song.uri!);
+        successCount++;
+      } catch (e) {
+        debugPrint('Skipping duplicate song-tag: ${song.title}');
+      }
+      onProgress?.call(i + 1, songs.length);
+    }
+
+    if (urisToAdd.isNotEmpty) {
+      try {
+        for (int i = 0; i < urisToAdd.length; i += 100) {
+          final batch = urisToAdd.sublist(
+            i,
+            i + 100 > urisToAdd.length ? urisToAdd.length : i + 100,
+          );
+          await _spotifyService.addTracksToPlaylist(tag.spotifyId, batch);
+        }
+      } catch (e) {
+        debugPrint('Spotify batch sync failed (local DB still updated): $e');
+      }
+    }
+
+    await _loadSongCounts();
+    notifyListeners();
+    return successCount;
+  }
+
+  Future<int> batchRemoveTagFromSongs({
+    required List<Song> songs,
+    required Tag tag,
+    void Function(int completed, int total)? onProgress,
+  }) async {
+    if (tag.id == null) throw Exception('Tag must be saved to database first');
+
+    int successCount = 0;
+    final urisToRemove = <String>[];
+
+    for (int i = 0; i < songs.length; i++) {
+      final song = songs[i];
+      if (song.id == null) continue;
+
+      try {
+        await _databaseService.removeSongFromTag(song.id!, tag.id!);
+        if (song.uri != null) urisToRemove.add(song.uri!);
+        successCount++;
+      } catch (e) {
+        debugPrint('Error removing song-tag: ${song.title}');
+      }
+      onProgress?.call(i + 1, songs.length);
+    }
+
+    if (urisToRemove.isNotEmpty) {
+      try {
+        for (int i = 0; i < urisToRemove.length; i += 100) {
+          final batch = urisToRemove.sublist(
+            i,
+            i + 100 > urisToRemove.length ? urisToRemove.length : i + 100,
+          );
+          await _spotifyService.removeTracksFromPlaylist(tag.spotifyId, batch);
+        }
+      } catch (e) {
+        debugPrint('Spotify batch sync failed (local DB still updated): $e');
+      }
+    }
+
+    await _loadSongCounts();
+    notifyListeners();
+    return successCount;
   }
 }

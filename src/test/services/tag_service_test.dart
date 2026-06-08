@@ -254,4 +254,171 @@ void main() {
       expect(tagService.songCountForTag(tagService.userTags.first), 1);
     });
   });
+
+  group('TagService - Song Tagging', () {
+    late Song testSong;
+    late Tag testTag;
+
+    setUp(() async {
+      final songId = await mockDb.insertSong(Song(
+        spotifyId: 's1',
+        title: 'Test Song',
+        artist: 'Artist',
+        album: 'Album',
+        uri: 'spotify:track:s1',
+      ));
+      final songs = await mockDb.getAllSongs();
+      testSong = songs.first;
+
+      await tagService.createTag('workout');
+      testTag = tagService.userTags.first;
+    });
+
+    test('getTagsForSong returns empty for untagged song', () async {
+      final tags = await tagService.getTagsForSong(testSong);
+      expect(tags, isEmpty);
+    });
+
+    test('addTagToSong adds tag locally and syncs to Spotify', () async {
+      await tagService.addTagToSong(testSong, testTag);
+
+      final tags = await tagService.getTagsForSong(testSong);
+      expect(tags.length, 1);
+      expect(tags.first.name, 'workout');
+      expect(mockSpotify.addedTracks[testTag.spotifyId], ['spotify:track:s1']);
+    });
+
+    test('removeTagFromSong removes tag locally and syncs to Spotify', () async {
+      await tagService.addTagToSong(testSong, testTag);
+      await tagService.removeTagFromSong(testSong, testTag);
+
+      final tags = await tagService.getTagsForSong(testSong);
+      expect(tags, isEmpty);
+      expect(mockSpotify.removedTracks[testTag.spotifyId], ['spotify:track:s1']);
+    });
+
+    test('addTagToSong rolls back on Spotify failure', () async {
+      await tagService.addTagToSong(testSong, testTag);
+      mockSpotify.addedTracks.clear();
+
+      // Create a second tag and make Spotify fail
+      await tagService.createTag('chill');
+      final chillTag = tagService.userTags.firstWhere((t) => t.name == 'chill');
+      mockSpotify.shouldFail = true;
+
+      expect(
+        () => tagService.addTagToSong(testSong, chillTag),
+        throwsException,
+      );
+
+      // The chill tag should have been rolled back
+      final tags = await tagService.getTagsForSong(testSong);
+      expect(tags.length, 1);
+      expect(tags.first.name, 'workout');
+    });
+
+    test('removeTagFromSong rolls back on Spotify failure', () async {
+      await tagService.addTagToSong(testSong, testTag);
+      mockSpotify.shouldFail = true;
+
+      expect(
+        () => tagService.removeTagFromSong(testSong, testTag),
+        throwsException,
+      );
+
+      // The tag should still be there after rollback
+      final tags = await tagService.getTagsForSong(testSong);
+      expect(tags.length, 1);
+      expect(tags.first.name, 'workout');
+    });
+
+    test('addTagToSong throws for unsaved song', () async {
+      final unsavedSong = Song(
+        spotifyId: 'x1',
+        title: 'Unsaved',
+        artist: 'A',
+        album: 'B',
+      );
+
+      expect(
+        () => tagService.addTagToSong(unsavedSong, testTag),
+        throwsException,
+      );
+    });
+
+    test('updates song counts after tagging', () async {
+      await tagService.addTagToSong(testSong, testTag);
+
+      expect(tagService.songCountForTag(testTag), 1);
+    });
+  });
+
+  group('TagService - Batch Tagging', () {
+    late List<Song> testSongs;
+    late Tag testTag;
+
+    setUp(() async {
+      for (int i = 0; i < 5; i++) {
+        await mockDb.insertSong(Song(
+          spotifyId: 's$i',
+          title: 'Song $i',
+          artist: 'Artist',
+          album: 'Album',
+          uri: 'spotify:track:s$i',
+        ));
+      }
+      testSongs = await mockDb.getAllSongs();
+
+      await tagService.createTag('batch-tag');
+      testTag = tagService.userTags.first;
+    });
+
+    test('batchAddTagToSongs tags all songs', () async {
+      final count = await tagService.batchAddTagToSongs(
+        songs: testSongs,
+        tag: testTag,
+      );
+
+      expect(count, 5);
+      expect(tagService.songCountForTag(testTag), 5);
+      expect(mockSpotify.addedTracks[testTag.spotifyId]?.length, 5);
+    });
+
+    test('batchAddTagToSongs reports progress', () async {
+      final progressUpdates = <int>[];
+
+      await tagService.batchAddTagToSongs(
+        songs: testSongs,
+        tag: testTag,
+        onProgress: (completed, total) => progressUpdates.add(completed),
+      );
+
+      expect(progressUpdates, [1, 2, 3, 4, 5]);
+    });
+
+    test('batchRemoveTagFromSongs removes all', () async {
+      await tagService.batchAddTagToSongs(songs: testSongs, tag: testTag);
+
+      final count = await tagService.batchRemoveTagFromSongs(
+        songs: testSongs,
+        tag: testTag,
+      );
+
+      expect(count, 5);
+      expect(tagService.songCountForTag(testTag), 0);
+    });
+
+    test('batchAddTagToSongs skips duplicates', () async {
+      await tagService.addTagToSong(testSongs[0], testTag);
+      mockSpotify.addedTracks.clear();
+
+      final count = await tagService.batchAddTagToSongs(
+        songs: testSongs,
+        tag: testTag,
+      );
+
+      // First song was already tagged, so only 4 new
+      expect(count, 4);
+    });
+  });
 }
