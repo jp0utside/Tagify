@@ -35,8 +35,7 @@ class Song {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
+    final map = <String, dynamic>{
       'spotify_id': spotifyId,
       'title': title,
       'artist': artist,
@@ -45,6 +44,8 @@ class Song {
       'uri': uri,
       'created_at': createdAt?.toIso8601String(),
     };
+    if (id != null) map['id'] = id;
+    return map;
   }
 
   factory Song.fromSpotifyTrack(Map<String, dynamic> track) {

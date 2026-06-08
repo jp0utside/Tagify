@@ -37,8 +37,7 @@ class Tag {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
+    final map = <String, dynamic>{
       'spotify_id': spotifyId,
       'name': name,
       'description': description,
@@ -46,6 +45,8 @@ class Tag {
       'is_public': isPublic ? 1 : 0,
       'created_at': createdAt?.toIso8601String(),
     };
+    if (id != null) map['id'] = id;
+    return map;
   }
 
   factory Tag.fromSpotifyPlaylist(Map<String, dynamic> playlist) {

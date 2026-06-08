@@ -1,0 +1,58 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main, claude/serene-shannon-8ezk0p]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Create .env file
+        working-directory: src
+        run: |
+          cat > .env << EOL
+          SPOTIFY_CLIENT_ID=${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_REDIRECT_URI=https://jp0utside.github.io/Tagify/
+          SPOTIFY_SCOPE=user-library-read playlist-read-private playlist-modify-private user-modify-playback-state
+          EOL
+
+      - name: Install dependencies
+        working-directory: src
+        run: flutter pub get
+
+      - name: Build web
+        working-directory: src
+        run: flutter build web --base-href /Tagify/
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: src/build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

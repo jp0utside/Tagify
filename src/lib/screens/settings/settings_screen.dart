@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/database_service.dart';
+import '../import/import_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -13,35 +14,23 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
+    final authService = Provider.of<AuthService>(context);
+    final databaseService = Provider.of<DatabaseService>(context, listen: false);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
       ),
-      body: Consumer2<AuthService, DatabaseService>(
-        builder: (context, authService, databaseService, child) {
-          return ListView(
-            children: [
-              // User Info Section
-              if (authService.user != null)
-                _buildUserSection(authService.user!),
-              
-              const Divider(),
-              
-              // Database Info Section
-              _buildDatabaseSection(databaseService),
-              
-              const Divider(),
-              
-              // App Info Section
-              _buildAppSection(),
-              
-              const Divider(),
-              
-              // Actions Section
-              _buildActionsSection(authService),
-            ],
-          );
-        },
+      body: ListView(
+        children: [
+          if (authService.user != null) _buildUserSection(authService.user!),
+          const Divider(),
+          _buildDatabaseSection(databaseService),
+          const Divider(),
+          _buildAppSection(),
+          const Divider(),
+          _buildActionsSection(authService),
+        ],
       ),
     );
   }
@@ -49,19 +38,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildUserSection(user) {
     return ListTile(
       leading: CircleAvatar(
-        backgroundImage: user.imageUrl != null 
-            ? NetworkImage(user.imageUrl!) 
-            : null,
-        child: user.imageUrl == null 
-            ? const Icon(Icons.person) 
-            : null,
+        backgroundImage:
+            user.imageUrl != null ? NetworkImage(user.imageUrl!) : null,
+        child: user.imageUrl == null ? const Icon(Icons.person) : null,
       ),
       title: Text(user.displayName),
       subtitle: Text(user.email ?? 'No email'),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () {
-        // TODO: Show user profile
-      },
     );
   }
 
@@ -74,10 +56,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           leading: const Icon(Icons.storage),
           title: const Text('Local Database'),
           subtitle: Text('$songCount songs stored locally'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () {
-            // TODO: Show database details
-          },
         );
       },
     );
@@ -88,7 +66,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       leading: Icon(Icons.info),
       title: Text('About Tagify'),
       subtitle: Text('Version 1.0.0'),
-      trailing: Icon(Icons.chevron_right),
     );
   }
 
@@ -96,23 +73,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Column(
       children: [
         ListTile(
-          leading: const Icon(Icons.sync),
-          title: const Text('Sync Now'),
-          subtitle: const Text('Sync with Spotify'),
+          leading: const Icon(Icons.cloud_download),
+          title: const Text('Import Library'),
+          subtitle: const Text('Import songs and playlists from Spotify'),
           onTap: () {
-            // TODO: Implement sync
-          },
-        ),
-        ListTile(
-          leading: const Icon(Icons.help),
-          title: const Text('Help & Support'),
-          onTap: () {
-            // TODO: Show help
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ImportScreen()),
+            );
           },
         ),
         ListTile(
           leading: const Icon(Icons.logout, color: Colors.red),
-          title: const Text('Disconnect Account', style: TextStyle(color: Colors.red)),
+          title: const Text('Disconnect Account',
+              style: TextStyle(color: Colors.red)),
           onTap: () async {
             final confirmed = await showDialog<bool>(
               context: context,
@@ -134,7 +107,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             );
-            
+
             if (confirmed == true) {
               await authService.logout();
             }
