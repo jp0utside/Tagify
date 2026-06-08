@@ -10,7 +10,7 @@ import 'web_database_service.dart';
 class DatabaseService {
   static Database? _database;
   static const String _databaseName = 'tagify.db';
-  static const int _databaseVersion = 1;
+  static const int _databaseVersion = 2;
   static bool _initialized = false;
   static WebDatabaseService? _webService;
 
@@ -53,6 +53,7 @@ class DatabaseService {
         title TEXT NOT NULL,
         artist TEXT NOT NULL,
         album TEXT NOT NULL,
+        album_art_url TEXT,
         duration_ms INTEGER,
         uri TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -90,7 +91,11 @@ class DatabaseService {
         'CREATE INDEX idx_song_tags_tag_id ON song_tags(tag_id)');
   }
 
-  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {}
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE songs ADD COLUMN album_art_url TEXT');
+    }
+  }
 
   // Song operations
 
