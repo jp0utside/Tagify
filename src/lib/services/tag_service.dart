@@ -114,7 +114,7 @@ class TagService extends ChangeNotifier {
 
       await _databaseService.insertTag(tag);
       await loadTags();
-      return tag;
+      return _tags.firstWhere((t) => t.spotifyId == spotifyTag.spotifyId);
     } catch (e) {
       debugPrint('Error creating tag: $e');
       rethrow;
