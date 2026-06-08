@@ -4,7 +4,7 @@
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.16+-blue.svg)](https://flutter.dev/)
 [![License](https://img.shields.io/badge/License-Personal-green.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-Phase%201%20Complete-brightgreen.svg)](docs/Tagify_Development_Roadmap.md)
+[![Status](https://img.shields.io/badge/Status-Phase%202%20Complete-brightgreen.svg)](docs/Tagify_Development_Roadmap.md)
 
 ## 🎵 What is Tagify?
 
@@ -25,15 +25,23 @@ Tagify solves the fundamental limitation of Spotify's playlist system by adding 
 
 ### ✅ Phase 1 Complete: Foundation & Authentication
 - **Flutter project setup** with complete structure and dependencies
-- **Spotify OAuth authentication** with PKCE security
+- **Spotify OAuth authentication** with PKCE security (SHA256)
 - **SQLite database** with optimized schema for fast queries
 - **Core services** for API integration and local data management
 - **UI foundation** with Material 3 theming and navigation
 
-### 🚧 Next: Phase 2 - Library Import & Data Management
-- Import user's Spotify library and playlists
-- Tag management functionality
-- Data sync between local and Spotify
+### ✅ Phase 2 Complete: Library Import & Tag Management
+- **Library import** with paginated Spotify API fetch, progress tracking, and cancellation
+- **Tag management** — create, rename, delete tags (synced to Spotify playlists)
+- **Library screen** with album art, search filtering, pull-to-refresh
+- **Tags screen** with Tags/Playlists tabs, overflow menu for rename/delete
+- **Web deployment** via GitHub Actions → GitHub Pages
+- **Unit tests** for ImportService and TagService
+
+### 🚧 Next: Phase 3 - Tagging System
+- Individual song tagging from song detail screen
+- Batch tagging operations
+- Tag chips display in library list
 
 ## 📱 Key Features
 
@@ -70,14 +78,17 @@ Tagify/
 │   │   │   ├── song_tag.dart      # Junction table
 │   │   │   └── user.dart          # User profile
 │   │   ├── services/              # Business logic
-│   │   │   ├── auth_service.dart  # Authentication
-│   │   │   ├── database_service.dart # Local database
-│   │   │   └── spotify_service.dart # Spotify API
+│   │   │   ├── auth_service.dart  # Spotify OAuth PKCE
+│   │   │   ├── spotify_service.dart # Spotify Web API
+│   │   │   ├── database_service.dart # SQLite / web delegate
+│   │   │   ├── import_service.dart # Library import
+│   │   │   └── tag_service.dart   # Tag CRUD
 │   │   ├── screens/               # UI screens
-│   │   │   ├── auth/              # Authentication screens
-│   │   │   ├── main/              # Main navigation
-│   │   │   ├── library/           # Song library
-│   │   │   ├── query/             # Query builder
+│   │   │   ├── auth/              # Login screen
+│   │   │   ├── main/              # Bottom nav shell
+│   │   │   ├── library/           # Song list + search
+│   │   │   ├── import/            # Import progress
+│   │   │   ├── query/             # Query builder (Phase 4)
 │   │   │   ├── tags/              # Tag management
 │   │   │   └── settings/          # App settings
 │   │   ├── theme/                 # App theming
@@ -130,24 +141,23 @@ Tagify/
 
 ### Testing the App
 
-#### Current Phase 1 Features
-- **Authentication**: Tap "Connect with Spotify" to test OAuth flow
-- **Navigation**: Use bottom navigation to explore different screens
-- **Settings**: View user profile and app information
-- **Database**: Check that local database is initialized
+#### Web (GitHub Pages)
+The app is deployed at `https://jp0utside.github.io/Tagify/`. Web uses in-memory storage (data resets on page refresh).
 
 #### What Works Now
-- ✅ Spotify OAuth authentication
+- ✅ Spotify OAuth authentication (PKCE with SHA256)
 - ✅ Secure token storage and refresh
-- ✅ Local SQLite database setup
-- ✅ Basic UI navigation
-- ✅ User profile display
+- ✅ Import liked songs and playlists from Spotify
+- ✅ Library screen with album art, search, pull-to-refresh
+- ✅ Create, rename, and delete tags (synced to Spotify)
+- ✅ Tags/Playlists tabs with song counts
+- ✅ Bottom tab navigation
+- ✅ User profile display in settings
 
-#### What's Coming in Phase 2
-- 🚧 Library import from Spotify
-- 🚧 Tag creation and management
-- 🚧 Song tagging functionality
-- 🚧 Query builder interface
+#### What's Coming Next
+- 🚧 Individual song tagging (Phase 3)
+- 🚧 Batch tagging operations (Phase 3)
+- 🚧 Query builder with AND/OR/NOT logic (Phase 4)
 
 ## 🎯 Use Cases
 
@@ -202,6 +212,7 @@ CREATE TABLE songs (
   title TEXT NOT NULL,
   artist TEXT NOT NULL,
   album TEXT NOT NULL,
+  album_art_url TEXT,
   duration_ms INTEGER,
   uri TEXT
 );
@@ -227,18 +238,20 @@ CREATE TABLE song_tags (
 
 ### Phase 1 ✅ Complete
 - [x] Flutter project setup
-- [x] Spotify OAuth authentication
+- [x] Spotify OAuth authentication (PKCE with SHA256)
 - [x] SQLite database schema
 - [x] Core services and models
 - [x] Basic UI navigation
 
-### Phase 2 🚧 Next (Week 2)
-- [ ] Library import from Spotify
-- [ ] Tag management functionality
-- [ ] Data sync implementation
+### Phase 2 ✅ Complete
+- [x] Library import from Spotify (paginated, with progress/cancel)
+- [x] Tag management (create/rename/delete with Spotify sync)
+- [x] Album art in library, search filtering
+- [x] Web deployment (GitHub Actions → GitHub Pages)
+- [x] Unit tests for ImportService and TagService
 
-### Phase 3 📅 Planned (Week 3)
-- [ ] Individual song tagging
+### Phase 3 🚧 Next (Week 3)
+- [ ] Individual song tagging from detail screen
 - [ ] Batch tagging operations
 - [ ] Tag chips and UI components
 
