@@ -40,7 +40,7 @@ Tagify/
     │   │   ├── main/main_screen.dart       # Bottom nav, IndexedStack
     │   │   ├── library/library_screen.dart # Song list, search, import trigger
     │   │   ├── import/import_screen.dart   # Import progress UI
-    │   │   ├── query/query_screen.dart     # Placeholder — Phase 4
+    │   │   ├── query/query_screen.dart     # AND/OR/NOT query builder with live results
     │   │   ├── tags/tags_screen.dart       # Tags/Playlists tabs, CRUD dialogs
     │   │   └── settings/settings_screen.dart
     │   ├── theme/app_theme.dart            # Material 3, Spotify colors
@@ -68,30 +68,30 @@ Tagify/
 - **UI**: Import screen (idle/importing/complete/failed/cancelled states), library with album art + search, tags screen with tabs (Tags/Playlists) and overflow menu
 - **Web deployment**: GitHub Actions → GitHub Pages at `https://jp0utside.github.io/Tagify/`
 
-## Next Phase: Phase 3 — Tagging System
+### Phase 3: Tagging System
+- **Song detail screen**: Tap song → full details, tag chips with add/remove, optimistic UI + rollback
+- **Tag selector**: Autocomplete search, inline tag creation, excludes already-applied tags
+- **Tag chips in library**: First 3 tags shown per song row with "+N" overflow
+- **Batch tagging**: Long-press multi-select, batch add/remove with progress, Spotify sync in batches of 100
+- **Widgets**: `TagChip`, `TagChipList`, `TagSelector` (reusable)
 
-Per the roadmap, this is the immediate next work:
+### Phase 4: Query Builder
+- **Query screen**: AND/OR/NOT tag sections with real-time results
+- **Tag picker**: Bottom sheet with search across tags and playlists, song counts
+- **Results**: Live song list with album art, tap to open song details
+- **Engine**: `DatabaseService.executeQuery()` handles SQL (intersection for AND, union for OR, exclusion for NOT)
 
-### 3.1: Individual Song Tagging
-- **Song detail screen**: Tap a song in the library → see full details, current tags as chips, "Add Tag" button
-- **Tag selector**: Autocomplete search across existing tags, option to create new tag inline
-- **Tag assignment**: Add/remove tags on a song. Optimistic UI update, then background Spotify API call (`POST /playlists/{id}/tracks` / `DELETE /playlists/{id}/tracks`). Rollback on failure.
-- **Tag chips in library**: Show first 2-3 tag chips on each song row in the library list
+## Next Phase: Phase 5 — Export & Polish
 
-### 3.2: Batch Tagging
-- **Multi-select mode**: Long-press or edit button in library → checkboxes on songs
-- **Batch apply/remove**: Select songs → pick a tag → apply to all selected
-- **Progress indicator**: For large batch operations with rate limiting
+### 5.1: Export Options
+- Save query results as a new tag
+- Save query results as a Spotify playlist
+- Add query results to Spotify queue
 
-### Key files to create
-- `lib/screens/songs/song_detail_screen.dart`
-- `lib/widgets/tag_selector.dart`
-- `lib/widgets/tag_chip.dart`
-
-### Key existing code to build on
-- `SpotifyService.addTracksToPlaylist()` and `removeTracksFromPlaylist()` already exist
-- `DatabaseService.addSongToTag()`, `removeSongFromTag()`, `getTagsForSong()` already exist
-- `TagService` already manages tag state and can be extended
+### 5.2: Polish
+- Sync status UI and manual sync option
+- Token expiry handling (401 retry)
+- Search in Tags screen
 
 ## Architecture Notes
 
