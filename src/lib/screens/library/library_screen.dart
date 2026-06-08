@@ -345,25 +345,25 @@ class _LibraryScreenState extends State<LibraryScreen> {
               )
             : null,
         actions: [
-          if (_isSelecting) ...[
+          IconButton(
+            icon: Icon(_isSearching ? Icons.close : Icons.search),
+            onPressed: () {
+              setState(() {
+                _isSearching = !_isSearching;
+                if (!_isSearching) {
+                  _searchController.clear();
+                  _filteredSongs = _songs;
+                }
+              });
+              },
+          ),
+          if (_isSelecting)
             IconButton(
               icon: const Icon(Icons.select_all),
               onPressed: _selectAll,
               tooltip: 'Select all',
-            ),
-          ] else ...[
-            IconButton(
-              icon: Icon(_isSearching ? Icons.close : Icons.search),
-              onPressed: () {
-                setState(() {
-                  _isSearching = !_isSearching;
-                  if (!_isSearching) {
-                    _searchController.clear();
-                    _filteredSongs = _songs;
-                  }
-                });
-              },
-            ),
+            )
+          else ...[
             IconButton(
               icon: const Icon(Icons.checklist),
               onPressed: _songs.isNotEmpty ? _toggleSelection : null,
