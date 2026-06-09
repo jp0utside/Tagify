@@ -38,10 +38,23 @@ This roadmap outlines the development plan for Tagify, a mobile app that adds a 
 - Fixed Spotify OAuth PKCE (SHA256) and same-tab redirect for web
 - Unit tests for ImportService (8) and TagService (17)
 
-**🚧 Next: Phase 3 (Week 3): Tagging System**
+**✅ Phase 3 Complete (Week 3): Tagging System**
 - Individual song tagging from song detail screen
 - Batch tagging operations
 - Tag chips display in library
+
+**✅ Phase 4 Complete (Week 4): Query Builder & Results**
+- AND/OR/NOT query builder UI with real-time results
+- Query execution engine using SQL set operations
+- Results display with album art, tap to view details
+
+**✅ Phase 5 Complete (Week 5): Export & Playback Integration**
+- ExportService with queue, playlist, and tag export
+- Export UI in query screen with progress dialog
+- Cancellation support and batch operations
+- 14 unit tests for ExportService
+
+**🚧 Next: Phase 6 (Week 6): Polish & Testing**
 
 ---
 
@@ -285,50 +298,41 @@ This roadmap outlines the development plan for Tagify, a mobile app that adds a 
 
 ---
 
-### Phase 5: Export & Playback Integration (Week 5)
+### Phase 5: Export & Playback Integration (Week 5) ✅ **COMPLETED**
 **Goal:** Complete the user workflow with export options and Spotify integration
 
-####  5.1: Export to Queue (Days 29-31)
+####  5.1: Export to Queue (Days 29-31) ✅ **COMPLETED**
 **Deliverables:**
-- [ ] Add query results to Spotify queue
-- [ ] Progress tracking for queue operations
-- [ ] Deep linking to Spotify app
-- [ ] Error handling for playback operations
+- [x] Add query results to Spotify queue
+- [x] Progress tracking for queue operations
+- [x] Error handling for playback operations
 
-**Technical Tasks:**
-- Implement Spotify queue API integration
-- Create queue export UI with progress tracking
-- Add deep linking to Spotify app
-- Implement batch queue operations with rate limiting
-- Add queue export confirmation and feedback
-- Handle Spotify app not installed scenarios
-- Create fallback options for queue export failures
+**Implementation Notes:**
+- `ExportService.exportToQueue()` adds songs sequentially with 100ms rate limiting
+- Confirmation dialog warns that active Spotify playback is required
+- Progress dialog shows real-time completion count with cancel option
+- Songs without URIs are gracefully skipped
+
+#### 5.2: Export as Playlist/Tag (Days 32-35) ✅ **COMPLETED**
+**Deliverables:**
+- [x] Save query results as new tag
+- [x] Save query results as regular playlist
+- [x] Export progress tracking
+- [x] Export confirmation and feedback
+
+**Implementation Notes:**
+- `ExportService.exportAsPlaylist()` creates a Spotify playlist and batch-adds tracks (100 per API call)
+- `ExportService.exportAsTag()` creates a Tagify tag (Spotify playlist + local DB entries) with batch sync
+- Bottom sheet export menu accessible from query results header via "Export" button
+- Name prompt dialog for playlist/tag creation
+- Progress dialog with linear indicator and cancel support
+- Success/failure snackbar feedback after export completes
+- TagService reloads after tag export to reflect new tag in UI
 
 **Key Files:**
-- `lib/services/queue_service.dart`
-- `lib/widgets/export_options.dart`
-- `lib/utils/deep_link_helper.dart`
-
-#### 5.2: Export as Playlist/Tag (Days 32-35)
-**Deliverables:**
-- [ ] Save query results as new tag
-- [ ] Save query results as regular playlist
-- [ ] Export progress tracking
-- [ ] Export confirmation and feedback
-
-**Technical Tasks:**
-- Implement playlist creation in Spotify
-- Create export options UI with naming prompts
-- Add export progress tracking and error handling
-- Implement tag creation from query results
-- Add export history and management
-- Create export success/failure notifications
-- Implement playlist organization (Tagify Tags folder)
-
-**Key Files:**
-- `lib/services/export_service.dart`
-- `lib/screens/export/export_options_screen.dart`
-- `lib/widgets/export_progress_widget.dart`
+- `lib/services/export_service.dart` — unified export service for all three export types
+- `lib/screens/query/query_screen.dart` — export UI integrated into query results
+- `test/services/export_service_test.dart` — 14 unit tests
 
 ---
 

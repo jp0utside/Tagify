@@ -7,6 +7,7 @@ import 'services/database_service.dart';
 import 'services/spotify_service.dart';
 import 'services/import_service.dart';
 import 'services/tag_service.dart';
+import 'services/export_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,6 +46,16 @@ void main() async {
           update: (_, spotify, db, previous) =>
               previous ??
               TagService(spotifyService: spotify, databaseService: db),
+        ),
+        ChangeNotifierProxyProvider2<SpotifyService, DatabaseService,
+            ExportService>(
+          create: (context) => ExportService(
+            spotifyService: SpotifyService(authService),
+            databaseService: databaseService,
+          ),
+          update: (_, spotify, db, previous) =>
+              previous ??
+              ExportService(spotifyService: spotify, databaseService: db),
         ),
       ],
       child: const TagifyApp(),

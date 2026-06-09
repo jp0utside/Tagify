@@ -34,7 +34,8 @@ Tagify/
     │   │   ├── web_database_service.dart   # In-memory DB for web platform
     │   │   ├── database_factory.dart       # Legacy — not used, can be removed
     │   │   ├── import_service.dart         # Library import with progress/cancel
-    │   │   └── tag_service.dart            # Tag CRUD + validation
+    │   │   ├── tag_service.dart            # Tag CRUD + validation
+    │   │   └── export_service.dart         # Export query results (queue/playlist/tag)
     │   ├── screens/
     │   │   ├── auth/login_screen.dart
     │   │   ├── main/main_screen.dart       # Bottom nav, IndexedStack
@@ -52,7 +53,8 @@ Tagify/
         └── services/
             ├── mock_services.dart          # Manual mocks for Spotify/DB
             ├── import_service_test.dart    # 8 tests
-            └── tag_service_test.dart       # 17 tests
+            ├── tag_service_test.dart       # 17 tests
+            └── export_service_test.dart   # 14 tests
 ```
 
 ## Completed Phases
@@ -81,17 +83,25 @@ Tagify/
 - **Results**: Live song list with album art, tap to open song details
 - **Engine**: `DatabaseService.executeQuery()` handles SQL (intersection for AND, union for OR, exclusion for NOT)
 
-## Next Phase: Phase 5 — Export & Polish
+### Phase 5: Export & Playback Integration
+- **ExportService**: Handles three export types — queue, playlist, and tag — with progress tracking and cancellation
+- **Export to Queue**: Adds query result songs to Spotify queue sequentially with rate limiting (100ms delay)
+- **Export as Playlist**: Creates a new Spotify playlist and batch-adds songs (100 per API call)
+- **Export as Tag**: Creates a Tagify tag (Spotify playlist + local DB) and assigns all songs with batch sync
+- **Export UI**: Bottom sheet menu from query results header with progress dialog and success/failure feedback
+- **Unit tests**: 14 tests covering all export types, progress, cancellation, error handling, and edge cases
 
-### 5.1: Export Options
-- Save query results as a new tag
-- Save query results as a Spotify playlist
-- Add query results to Spotify queue
+## Next Phase: Phase 6 — Polish & Testing
 
-### 5.2: Polish
+### 6.1: Sync & Error Handling
+- Robust sync system between local and Spotify
 - Sync status UI and manual sync option
-- Token expiry handling (401 retry)
+- Comprehensive error handling
+
+### 6.2: UI Polish & Performance
+- Loading states and animations
 - Search in Tags screen
+- Onboarding flow for new users
 
 ## Architecture Notes
 
@@ -102,6 +112,7 @@ Provider with ChangeNotifier. Services are wired in `main.dart` via `MultiProvid
 - `SpotifyService` (ProxyProvider) — depends on AuthService for token
 - `ImportService` (ChangeNotifierProxyProvider2) — depends on Spotify + DB
 - `TagService` (ChangeNotifierProxyProvider2) — depends on Spotify + DB
+- `ExportService` (ChangeNotifierProxyProvider2) — depends on Spotify + DB
 
 ### Web vs Mobile
 `DatabaseService` checks `kIsWeb` at the top of every method and delegates to `WebDatabaseService` (in-memory maps) on web. Mobile uses SQLite via sqflite. The web DB does not persist across page reloads.
