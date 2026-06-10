@@ -119,6 +119,37 @@ class MockSpotifyService extends SpotifyService {
   Future<User> getCurrentUser() async {
     return User(id: 'user1', displayName: 'Test User');
   }
+
+  List<String> queuedTracks = [];
+
+  @override
+  Future<void> addTrackToQueue(String trackUri) async {
+    if (shouldFail) throw Exception('API Error');
+    queuedTracks.add(trackUri);
+  }
+
+  @override
+  Future<void> addTracksToQueue(List<String> trackUris) async {
+    for (final uri in trackUris) {
+      await addTrackToQueue(uri);
+    }
+  }
+
+  List<Map<String, dynamic>> createdPlaylists = [];
+
+  @override
+  Future<Tag> createPlaylist(String name, {String? description, bool isPublic = false}) async {
+    if (shouldFail) throw Exception('API Error');
+    final tag = Tag(
+      spotifyId: 'playlist_${name.hashCode}',
+      name: name,
+      description: description,
+      type: TagType.playlist,
+      isPublic: isPublic,
+    );
+    createdPlaylists.add({'name': name, 'description': description});
+    return tag;
+  }
 }
 
 class MockDatabaseService extends DatabaseService {

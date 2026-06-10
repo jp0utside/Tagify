@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../models/song.dart';
 import '../../models/tag.dart';
 import '../../services/database_service.dart';
+import '../../services/export_service.dart';
 import '../../services/tag_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/helpers.dart';
@@ -113,6 +114,182 @@ class _QueryScreenState extends State<QueryScreen> {
       _results.clear();
       _hasQueried = false;
     });
+  }
+
+  void _showExportMenu() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Export ${_results.length} song${_results.length == 1 ? '' : 's'}',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.queue_music, color: AppTheme.primaryColor),
+                title: const Text('Add to Queue'),
+                subtitle: const Text('Queue songs in Spotify (requires active playback)'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _confirmQueueExport();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.playlist_add, color: Colors.blue),
+                title: const Text('Save as Playlist'),
+                subtitle: const Text('Create a new Spotify playlist'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showNameDialog(ExportType.playlist);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.label, color: Colors.orange),
+                title: const Text('Save as Tag'),
+                subtitle: const Text('Create a new Tagify tag with these songs'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showNameDialog(ExportType.tag);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _confirmQueueExport() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add to Queue'),
+        content: Text(
+          'Add ${_results.length} song${_results.length == 1 ? '' : 's'} to your Spotify queue?\n\n'
+          'Note: Spotify must be actively playing on a device for this to work.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _executeExport(ExportType.queue);
+            },
+            child: const Text('Add to Queue'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showNameDialog(ExportType type) {
+    final controller = TextEditingController();
+    final label = type == ExportType.playlist ? 'Playlist' : 'Tag';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Save as $label'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: '$label name',
+            hintText: 'Enter a name...',
+            border: const OutlineInputBorder(),
+          ),
+          onSubmitted: (value) {
+            if (value.trim().isNotEmpty) {
+              Navigator.pop(context);
+              _executeExport(type, name: value.trim());
+            }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final name = controller.text.trim();
+              if (name.isEmpty) return;
+              Navigator.pop(context);
+              _executeExport(type, name: name);
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _executeExport(ExportType type, {String? name}) {
+    final exportService = Provider.of<ExportService>(context, listen: false);
+    exportService.reset();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => _ExportProgressDialog(
+        exportService: exportService,
+        type: type,
+        name: name,
+        songs: List.from(_results),
+        onDone: (result) {
+          Navigator.pop(dialogContext);
+          _showExportResult(result);
+          if (result.success && type == ExportType.tag) {
+            Provider.of<TagService>(context, listen: false).loadTags();
+          }
+        },
+      ),
+    );
+  }
+
+  void _showExportResult(ExportResult result) {
+    if (!mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    if (result.success) {
+      String message;
+      switch (result.type) {
+        case ExportType.queue:
+          message = '${result.songsExported} song${result.songsExported == 1 ? '' : 's'} added to queue';
+          break;
+        case ExportType.playlist:
+          message = 'Playlist "${result.createdTag?.name}" created with ${result.songsExported} songs';
+          break;
+        case ExportType.tag:
+          message = 'Tag "${result.createdTag?.name}" created with ${result.songsExported} songs';
+          break;
+      }
+      messenger.showSnackBar(SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green[700],
+      ));
+    } else if (result.error != null && result.error != 'Export cancelled') {
+      messenger.showSnackBar(SnackBar(
+        content: Text('Export failed: ${result.error}'),
+        backgroundColor: Colors.red[700],
+      ));
+    }
   }
 
   @override
@@ -276,6 +453,20 @@ class _QueryScreenState extends State<QueryScreen> {
                 fontSize: 14,
               ),
             ),
+          const Spacer(),
+          if (!_isQuerying && _hasQueried && _results.isNotEmpty)
+            SizedBox(
+              height: 32,
+              child: FilledButton.icon(
+                onPressed: _showExportMenu,
+                icon: const Icon(Icons.ios_share, size: 16),
+                label: const Text('Export', style: TextStyle(fontSize: 13)),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -414,6 +605,118 @@ class _QueryScreenState extends State<QueryScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ExportProgressDialog extends StatefulWidget {
+  final ExportService exportService;
+  final ExportType type;
+  final String? name;
+  final List<Song> songs;
+  final void Function(ExportResult) onDone;
+
+  const _ExportProgressDialog({
+    required this.exportService,
+    required this.type,
+    required this.name,
+    required this.songs,
+    required this.onDone,
+  });
+
+  @override
+  State<_ExportProgressDialog> createState() => _ExportProgressDialogState();
+}
+
+class _ExportProgressDialogState extends State<_ExportProgressDialog> {
+  int _completed = 0;
+  int _total = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _total = widget.songs.length;
+    _startExport();
+  }
+
+  Future<void> _startExport() async {
+    final ExportResult result;
+
+    void onProgress(int completed, int total) {
+      if (mounted) {
+        setState(() {
+          _completed = completed;
+          _total = total;
+        });
+      }
+    }
+
+    switch (widget.type) {
+      case ExportType.queue:
+        result = await widget.exportService.exportToQueue(
+          widget.songs,
+          onProgress: onProgress,
+        );
+        break;
+      case ExportType.playlist:
+        result = await widget.exportService.exportAsPlaylist(
+          widget.name!,
+          widget.songs,
+          onProgress: onProgress,
+        );
+        break;
+      case ExportType.tag:
+        result = await widget.exportService.exportAsTag(
+          widget.name!,
+          widget.songs,
+          onProgress: onProgress,
+        );
+        break;
+    }
+
+    widget.onDone(result);
+  }
+
+  String get _title {
+    switch (widget.type) {
+      case ExportType.queue:
+        return 'Adding to Queue...';
+      case ExportType.playlist:
+        return 'Creating Playlist...';
+      case ExportType.tag:
+        return 'Creating Tag...';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: widget.exportService,
+      builder: (context, _) {
+        final progress = widget.exportService.progress;
+        return AlertDialog(
+          title: Text(_title),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              LinearProgressIndicator(value: progress),
+              const SizedBox(height: 12),
+              Text(
+                '$_completed / $_total songs',
+                style: TextStyle(color: Colors.grey[600], fontSize: 14),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                widget.exportService.cancelExport();
+              },
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
